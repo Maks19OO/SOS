@@ -14,6 +14,7 @@ type ChatAreaProps = {
   onSendMessage: () => void;
   onKeyPress: (e: React.KeyboardEvent) => void;
   pageTitle: string;
+  isLoading?: boolean;
 };
 
 export const ChatArea = ({
@@ -23,6 +24,7 @@ export const ChatArea = ({
   onSendMessage,
   onKeyPress,
   pageTitle,
+  isLoading = false,
 }: ChatAreaProps) => {
   const { isMobile, isTablet } = useResponsive();
 
@@ -150,14 +152,16 @@ export const ChatArea = ({
                     padding: "14px 60px 14px 16px",
                     color: "var(--foreground)",
                     fontSize: 15,
-                    fontFamily: "inherit",
+                    fontFamily: "var(--font-inter), inherit",
+                    lineHeight: 1.5,
+                    letterSpacing: "-0.01em",
                     resize: "none",
                     outline: "none",
                   }}
                 />
                 <button
                   onClick={onSendMessage}
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isLoading}
                   style={{
                     position: "absolute",
                     right: 10,
@@ -176,7 +180,7 @@ export const ChatArea = ({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    opacity: inputValue.trim() ? 1 : 0.5,
+                    opacity: inputValue.trim() && !isLoading ? 1 : 0.5,
                   }}
                   onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
                     if (inputValue.trim()) {

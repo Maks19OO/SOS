@@ -3,6 +3,7 @@
 import { Message } from "../types/chat";
 import { useResponsive } from "../hooks/useMediaQuery";
 import { Typography } from "@snack-uikit/typography";
+import { CodeEditorWrapper } from "./CodeEditorWrapper";
 
 type MessageListProps = {
   messages: Message[];
@@ -68,7 +69,9 @@ export const MessageList = ({ messages }: MessageListProps) => {
               style={{
                 color: "var(--foreground)",
                 fontSize: isMobile ? 14 : 15,
+                fontFamily: "var(--font-inter), inherit",
                 lineHeight: 1.6,
+                letterSpacing: "-0.01em",
                 margin: 0,
               }}
             >
@@ -90,6 +93,8 @@ export const MessageList = ({ messages }: MessageListProps) => {
               border: "1px solid var(--accent-primary)",
               borderRadius: isMobile ? 8 : 12,
               padding: isMobile ? 12 : 20,
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
@@ -111,26 +116,13 @@ export const MessageList = ({ messages }: MessageListProps) => {
                 Результат
               </Typography>
             </div>
-            <pre
-              style={{
-                color: "var(--foreground)",
-                fontSize: isMobile ? 11 : 13,
-                fontFamily:
-                  "'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace",
-                whiteSpace: "pre-wrap",
-                lineHeight: 1.5,
-                margin: 0,
-              }}
-            >
-              <Typography
-                family="mono"
-                purpose="body"
-                size={isMobile ? "s" : "m"}
-                tag="span"
-              >
-                {message.response}
-              </Typography>
-            </pre>
+            <div style={{ flex: 1 }}>
+              <CodeEditorWrapper
+                value={message.response || ""}
+                height="auto"
+                isLoading={!message.response}
+              />
+            </div>
           </div>
         </div>
       ))}

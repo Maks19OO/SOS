@@ -117,7 +117,9 @@ export const Sidebar = ({
                 style={{
                   color: "var(--foreground)",
                   fontSize: 14,
+                  fontFamily: "var(--font-inter), inherit",
                   fontWeight: 500,
+                  letterSpacing: "-0.01em",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",

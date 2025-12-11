@@ -64,7 +64,9 @@ export const MessageInput = ({
             padding: isMobile ? "12px 50px 12px 16px" : "16px 60px 16px 20px",
             color: "var(--foreground)",
             fontSize: isMobile ? 14 : 15,
-            fontFamily: "inherit",
+            fontFamily: "var(--font-inter), inherit",
+            lineHeight: 1.5,
+            letterSpacing: "-0.01em",
             resize: "none",
             outline: "none",
           }}

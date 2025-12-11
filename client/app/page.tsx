@@ -21,12 +21,13 @@ export default function HomePage() {
     activeChat,
     inputValue,
     messages,
+    isLoading,
     setActiveChat,
     setInputValue,
     handleSendMessage,
     handleNewChat,
     handleKeyPress,
-  } = useChat();
+  } = useChat(colorMode as ColorMode);
 
   const pageTitle = useMemo(() => {
     const config = COLOR_MODE_CONFIG.find(
@@ -104,6 +105,7 @@ export default function HomePage() {
           onSendMessage={handleSendMessage}
           onKeyPress={handleKeyPress}
           pageTitle={pageTitle}
+          isLoading={isLoading}
         />
       </div>
     </div>
