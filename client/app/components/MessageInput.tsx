@@ -1,7 +1,7 @@
 "use client";
 
 import { useResponsive } from "../hooks/useMediaQuery";
-import React from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 
 type MessageInputProps = {
   value: string;
@@ -17,6 +17,46 @@ export const MessageInput = ({
   onKeyPress,
 }: MessageInputProps) => {
   const { isMobile } = useResponsive();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Функция для обновления высоты textarea
+  const updateTextareaHeight = useCallback(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      const currentValue = textarea.value;
+      const isLargeRequest = currentValue.length > 200 || currentValue.split('\n').length > 3;
+      const baseHeight = isMobile 
+        ? (isLargeRequest ? 300 : 150)
+        : (isLargeRequest ? 400 : 200);
+      
+      // Сбрасываем высоту для точного измерения scrollHeight
+      textarea.style.height = 'auto';
+      const scrollHeight = textarea.scrollHeight;
+      
+      // Вычисляем новую высоту
+      let newHeight: number;
+      if (scrollHeight > baseHeight) {
+        // Увеличиваем на 15-20% или до scrollHeight + небольшой отступ
+        newHeight = Math.max(
+          Math.floor(baseHeight * 1.15),
+          Math.min(scrollHeight + 20, baseHeight * 1.5)
+        );
+      } else {
+        const minHeight = isMobile ? 48 : 56;
+        newHeight = Math.max(minHeight, scrollHeight);
+      }
+      
+      // Устанавливаем новую высоту напрямую
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, [isMobile]);
+  
+  // Обновляем высоту при изменении value
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      updateTextareaHeight();
+    });
+  }, [value, updateTextareaHeight]);
 
   return (
     <div
@@ -51,14 +91,20 @@ export const MessageInput = ({
         }}
       >
         <textarea
+          ref={textareaRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            // Немедленно обновляем высоту при изменении
+            requestAnimationFrame(() => {
+              updateTextareaHeight();
+            });
+          }}
           onKeyDown={onKeyPress}
           placeholder="Введите ваш запрос..."
           style={{
             width: "100%",
             minHeight: isMobile ? 48 : 56,
-            maxHeight: isMobile ? 150 : 200,
             background: "transparent",
             border: "none",
             padding: isMobile ? "12px 50px 12px 16px" : "16px 60px 16px 20px",
@@ -69,6 +115,8 @@ export const MessageInput = ({
             letterSpacing: "-0.01em",
             resize: "none",
             outline: "none",
+            transition: "height 0.2s ease",
+            overflowY: "auto",
           }}
         />
         <button
@@ -77,7 +125,8 @@ export const MessageInput = ({
           style={{
             position: "absolute",
             right: isMobile ? 8 : 12,
-            bottom: isMobile ? 8 : 12,
+            top: "50%",
+            transform: "translateY(-50%)",
             width: isMobile ? 32 : 36,
             height: isMobile ? 32 : 36,
             background: value.trim()

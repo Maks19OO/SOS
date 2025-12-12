@@ -7,9 +7,10 @@ import { CodeEditorWrapper } from "./CodeEditorWrapper";
 
 type MessageListProps = {
   messages: Message[];
+  isLoading?: boolean;
 };
 
-export const MessageList = ({ messages }: MessageListProps) => {
+export const MessageList = ({ messages, isLoading = false }: MessageListProps) => {
   const { isMobile, isTablet } = useResponsive();
 
   return (
@@ -23,7 +24,20 @@ export const MessageList = ({ messages }: MessageListProps) => {
         paddingRight: 0,
       }}
     >
-      {messages.map((message, index) => (
+      {messages.map((message, index) => {
+        // Проверяем, является ли это последним сообщением и идет ли загрузка
+        const isLastMessage = index === messages.length - 1;
+        const isMessageLoading = isLastMessage && isLoading && !message.response;
+        
+        // Вычисляем максимальную высоту для синхронизации запроса и результата
+        // Используем максимальное значение из запроса и ответа для одинаковой высоты
+        const requestLineCount = message.text ? message.text.split("\n").length : 1;
+        const responseLineCount = message.response ? message.response.split("\n").length : 1;
+        const maxLineCount = Math.max(requestLineCount, responseLineCount);
+        // Увеличена максимальная высота с 600 до 1000px
+        const maxHeight = Math.max(300, Math.min(1000, maxLineCount * 20 + 40));
+        
+        return (
         <div
           key={index}
           style={{
@@ -44,6 +58,10 @@ export const MessageList = ({ messages }: MessageListProps) => {
               border: "1px solid var(--border-color)",
               borderRadius: isMobile ? 8 : 12,
               padding: isMobile ? 12 : 20,
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: maxHeight,
+              overflow: "hidden",
             }}
           >
             <div
@@ -54,6 +72,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
                 marginBottom: isMobile ? 8 : 12,
                 textTransform: "uppercase",
                 letterSpacing: "0.5px",
+                flexShrink: 0,
               }}
             >
               <Typography
@@ -73,6 +92,9 @@ export const MessageList = ({ messages }: MessageListProps) => {
                 lineHeight: 1.6,
                 letterSpacing: "-0.01em",
                 margin: 0,
+                flex: 1,
+                overflowY: "auto",
+                overflowX: "hidden",
               }}
             >
               <Typography
@@ -95,6 +117,8 @@ export const MessageList = ({ messages }: MessageListProps) => {
               padding: isMobile ? 12 : 20,
               display: "flex",
               flexDirection: "column",
+              maxHeight: maxHeight,
+              overflow: "hidden",
             }}
           >
             <div
@@ -120,12 +144,13 @@ export const MessageList = ({ messages }: MessageListProps) => {
               <CodeEditorWrapper
                 value={message.response || ""}
                 height="auto"
-                isLoading={!message.response}
+                isLoading={isMessageLoading}
               />
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

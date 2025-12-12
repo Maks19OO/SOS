@@ -93,25 +93,38 @@ export const useChat = (colorMode: ColorMode) => {
       setMessages([]);
     }
 
-    // Добавляем сообщение пользователя сразу
+    // Добавляем сообщение пользователя сразу с пустым ответом (для показа индикатора загрузки)
     const newMessage: Message = {
       text: userMessage,
-      response: "",
+      response: "", // Пустой ответ покажет индикатор загрузки
     };
     const updatedMessages = [...currentMessages, newMessage];
+    // Обновляем состояние сразу, чтобы сообщение появилось в UI
     setMessages(updatedMessages);
+    // Сохраняем сообщение сразу (с пустым ответом)
+    if (currentChatId !== null) {
+      saveMessages(colorMode, currentChatId, updatedMessages);
+    }
 
     try {
       // Отправка запроса на API
+      const requestBody: any = {
+        colorMode: colorMode,
+      };
+      
+      // Для режима Lime отправляем openapiSpec вместо text
+      if (colorMode === "Lime") {
+        requestBody.openapiSpec = userMessage;
+      } else {
+        requestBody.text = userMessage;
+      }
+      
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          text: userMessage,
-          colorMode: colorMode,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

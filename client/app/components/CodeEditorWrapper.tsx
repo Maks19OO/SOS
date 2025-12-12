@@ -175,8 +175,9 @@ export const CodeEditorWrapper = ({
   };
 
   // Вычисляем минимальную высоту на основе количества строк
+  // Увеличена максимальная высота с 600 до 1000px для больших результатов
   const lineCount = value ? value.split("\n").length : 1;
-  const minHeight = Math.max(200, Math.min(600, lineCount * 20 + 40));
+  const minHeight = Math.max(300, Math.min(1000, lineCount * 20 + 40));
 
   return (
     <div style={{ borderRadius: 8, overflow: "hidden", minHeight, position: "relative" }}>

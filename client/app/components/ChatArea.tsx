@@ -5,7 +5,7 @@ import { MessageInput } from "./MessageInput";
 import { MessageList } from "./MessageList";
 import { useResponsive } from "../hooks/useMediaQuery";
 import { Typography } from "@snack-uikit/typography";
-import React from "react";
+import React, { useRef, useEffect, useState } from "react";
 
 type ChatAreaProps = {
   messages: Message[];
@@ -27,6 +27,44 @@ export const ChatArea = ({
   isLoading = false,
 }: ChatAreaProps) => {
   const { isMobile, isTablet } = useResponsive();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Функция для обновления высоты textarea
+  const updateTextareaHeight = React.useCallback(() => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      const currentValue = textarea.value;
+      const isLargeRequest = currentValue.length > 200 || currentValue.split('\n').length > 3;
+      const baseHeight = isLargeRequest ? 400 : 150;
+      
+      // Сбрасываем высоту для точного измерения scrollHeight
+      textarea.style.height = 'auto';
+      const scrollHeight = textarea.scrollHeight;
+      
+      // Вычисляем новую высоту
+      let newHeight: number;
+      if (scrollHeight > baseHeight) {
+        // Увеличиваем на 15-20% или до scrollHeight + небольшой отступ
+        newHeight = Math.max(
+          Math.floor(baseHeight * 1.15),
+          Math.min(scrollHeight, baseHeight)
+        );
+      } else {
+        newHeight = Math.max(52, scrollHeight); // Минимум 52px (minHeight)
+      }
+      
+      // Устанавливаем новую высоту напрямую
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+  
+  // Обновляем высоту при изменении inputValue
+  useEffect(() => {
+    // Используем requestAnimationFrame для измерения после рендера
+    requestAnimationFrame(() => {
+      updateTextareaHeight();
+    });
+  }, [inputValue, updateTextareaHeight]);
 
   return (
     <div
@@ -101,7 +139,7 @@ export const ChatArea = ({
       ) : (
         // Экран с разделением на 2 колонки
         <>
-          <MessageList messages={messages} />
+          <MessageList messages={messages} isLoading={isLoading} />
 
           {/* Поле ввода снизу */}
           <div
@@ -139,14 +177,20 @@ export const ChatArea = ({
                 }}
               >
                 <textarea
+                  ref={textareaRef}
                   value={inputValue}
-                  onChange={(e) => onInputChange(e.target.value)}
+                  onChange={(e) => {
+                    onInputChange(e.target.value);
+                    // Немедленно обновляем высоту при изменении
+                    requestAnimationFrame(() => {
+                      updateTextareaHeight();
+                    });
+                  }}
                   onKeyDown={onKeyPress}
                   placeholder="Новый запрос..."
                   style={{
                     width: "100%",
                     minHeight: 52,
-                    maxHeight: 150,
                     background: "transparent",
                     border: "none",
                     padding: "14px 60px 14px 16px",
@@ -157,6 +201,8 @@ export const ChatArea = ({
                     letterSpacing: "-0.01em",
                     resize: "none",
                     outline: "none",
+                    transition: "height 0.2s ease",
+                    overflowY: "auto",
                   }}
                 />
                 <button
@@ -165,7 +211,8 @@ export const ChatArea = ({
                   style={{
                     position: "absolute",
                     right: 10,
-                    bottom: 10,
+                    top: "50%",
+                    transform: "translateY(-50%)",
                     width: 32,
                     height: 32,
                     background: inputValue.trim()
