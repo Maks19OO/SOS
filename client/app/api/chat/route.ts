@@ -69,6 +69,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ text: responseText });
     }
 
+    // Режим Blue - оптимизация тест-кейсов
+    if (colorMode === "Blue") {
+      const BLUE_ENDPOINT = process.env.API_ENDPOINT_BLUE || "http://localhost:8000/blue";
+      
+      if (!text || typeof text !== "string") {
+        return NextResponse.json(
+          { error: "Код тест-кейсов обязателен для режима Blue" },
+          { status: 400 }
+        );
+      }
+
+      const response = await fetch(BLUE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API вернул ошибку: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const responseText = data.code || data.text || data.response || "";
+
+      return NextResponse.json({ text: responseText });
+    }
+
+    // Режим Purple - проверка тест-кейсов на стандарты
+    if (colorMode === "Purple") {
+      const PURPLE_ENDPOINT = process.env.API_ENDPOINT_PURPLE || "http://localhost:8000/purple";
+      
+      if (!text || typeof text !== "string") {
+        return NextResponse.json(
+          { error: "Код тест-кейсов обязателен для режима Purple" },
+          { status: 400 }
+        );
+      }
+
+      const response = await fetch(PURPLE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API вернул ошибку: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const responseText = data.code || data.text || data.response || "";
+
+      return NextResponse.json({ text: responseText });
+    }
+
     // Режим Green и другие - генерация из текста
     if (!text || typeof text !== "string") {
       return NextResponse.json(
