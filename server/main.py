@@ -430,7 +430,6 @@ from allure_commons._allure import step as allure_step
                 presence_penalty=0,
                 top_p=0.95,
                 messages=messages,
-                response_format={"type": "json_object"}  # Указываем, что нужен JSON ответ
             )
         except Exception as api_error:
             # Детальное логирование ошибки API
@@ -480,68 +479,91 @@ from allure_commons._allure import step as allure_step
         else:
             print(f"[DEBUG] Полный ответ: {response_text}", file=sys.stderr)
         
-        # Парсим JSON ответ в Pydantic модель
+        # Очищаем ответ от возможных markdown блоков
+        cleaned_response = response_text.strip()
+        
+        # Убираем markdown блоки если есть
+        if cleaned_response.startswith("```python"):
+            cleaned_response = cleaned_response[9:]  # Убираем ```python
+        elif cleaned_response.startswith("```json"):
+            cleaned_response = cleaned_response[7:]  # Убираем ```json
+        elif cleaned_response.startswith("```"):
+            cleaned_response = cleaned_response[3:]  # Убираем ```
+        if cleaned_response.endswith("```"):
+            cleaned_response = cleaned_response[:-3]  # Убираем закрывающий ```
+        cleaned_response = cleaned_response.strip()
+        
+        # Проверяем, является ли ответ Python кодом (начинается с import, @allure, def test_ и т.д.)
+        python_indicators = ["import ", "@allure", "def test_", "class ", "from ", "with allure", "@pytest", "@mark"]
+        is_python_code = any(
+            cleaned_response.startswith(indicator) or 
+            (indicator in cleaned_response[:200] and len(cleaned_response) > 50)  # Если индикатор есть в первых 200 символах и ответ достаточно длинный
+            for indicator in python_indicators
+        )
+        
+        # Пытаемся распарсить как JSON
         try:
-            response_json = json.loads(response_text)
-            report = AllureTestOpsReport(**response_json)
-        except json.JSONDecodeError as e:
-            error_msg = safe_str(e)
-            error_pos = getattr(e, 'pos', None)
-            error_line = getattr(e, 'lineno', None)
-            error_col = getattr(e, 'colno', None)
+            response_json = json.loads(cleaned_response)
             
-            print(f"[ERROR] Ошибка парсинга JSON:", file=sys.stderr)
-            print(f"[ERROR] Сообщение: {error_msg}", file=sys.stderr)
-            if error_pos:
-                print(f"[ERROR] Позиция ошибки: {error_pos} (символ {error_pos} из {response_length})", file=sys.stderr)
-            if error_line:
-                print(f"[ERROR] Строка: {error_line}, колонка: {error_col}", file=sys.stderr)
+            # Если это JSON с ошибкой
+            if isinstance(response_json, dict) and "error" in response_json:
+                error_info = response_json.get("error")
+                error_message = "Неизвестная ошибка"
+                error_code = None
+                
+                if isinstance(error_info, dict):
+                    error_message = error_info.get("message", error_info.get("code", str(error_info)))
+                    error_code = error_info.get("code")
+                elif isinstance(error_info, str):
+                    error_message = error_info
+                
+                if error_code == "context_length_exceeded":
+                    error_message = "Запрос превышает лимит длины контекста. Попробуйте сократить текст запроса или разбить его на части."
+                elif "invalid" in error_message.lower():
+                    error_message = "Модель не смогла обработать запрос. Попробуйте переформулировать запрос или уменьшить его размер."
+                elif "constraint" in error_message.lower() or "did not conform" in error_message.lower():
+                    error_message = "Модель не смогла сгенерировать ответ в требуемом формате. Попробуйте переформулировать запрос."
+                
+                print(f"[ERROR] OpenAI API вернул ошибку: {error_message}", file=sys.stderr)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Ошибка от OpenAI API: {error_message}"
+                )
             
-            # Показываем контекст вокруг ошибки
-            if error_pos:
-                start = max(0, error_pos - 100)
-                end = min(response_length, error_pos + 100)
-                context = response_text[start:end]
-                print(f"[ERROR] Контекст вокруг ошибки: ...{context}...", file=sys.stderr)
+            # Если это валидный JSON с testCases
+            if isinstance(response_json, dict) and "testCases" in response_json:
+                report = AllureTestOpsReport(**response_json)
+                code = generate_allure_test_code(report)
+                if isinstance(code, bytes):
+                    code = code.decode('utf-8', errors='replace')
+                code.encode('utf-8')
+                return GenerateResponse(code=code)
             
-            # Пытаемся найти и исправить обрезанный JSON
-            if error_pos and error_pos > response_length * 0.9:
-                print(f"[WARNING] Возможно, JSON ответ обрезан. Пытаемся исправить...", file=sys.stderr)
-                # Пытаемся найти последнюю закрывающую скобку
-                last_brace = response_text.rfind('}')
-                last_bracket = response_text.rfind(']')
-                if last_brace > 0 or last_bracket > 0:
-                    cut_pos = max(last_brace, last_bracket) + 1
-                    try:
-                        fixed_json = response_text[:cut_pos]
-                        response_json = json.loads(fixed_json)
-                        print(f"[INFO] JSON успешно исправлен, обрезано {response_length - cut_pos} символов", file=sys.stderr)
-                        report = AllureTestOpsReport(**response_json)
-                    except:
-                        pass
-            
+            # Если это JSON, но не содержит testCases - это ошибка
+            print(f"[ERROR] Ответ от OpenAI не содержит поле testCases. Структура: {list(response_json.keys()) if isinstance(response_json, dict) else type(response_json)}", file=sys.stderr)
             raise HTTPException(
-                status_code=500, 
-                detail=f"Ошибка парсинга JSON ответа от OpenAI: {error_msg}. Возможно, ответ обрезан или содержит невалидный JSON."
+                status_code=500,
+                detail="Ответ от OpenAI API не содержит ожидаемую структуру данных. Попробуйте переформулировать запрос."
             )
-        except ValueError as e:
-            error_msg = safe_str(e)
-            print(f"[ERROR] Ошибка валидации данных: {error_msg}", file=sys.stderr)
-            raise HTTPException(status_code=500, detail=f"Ошибка валидации ответа от OpenAI: {error_msg}")
+            
+        except json.JSONDecodeError:
+            # Не JSON - проверяем, является ли это Python кодом
+            if is_python_code:
+                # Модель вернула Python код напрямую - возвращаем его
+                print(f"[DEBUG] Модель вернула Python код напрямую, длина: {len(cleaned_response)} символов", file=sys.stderr)
+                return GenerateResponse(code=cleaned_response)
+            else:
+                # Это обычный текст - возвращаем его как код (возможно, модель дала объяснение)
+                print(f"[WARNING] Модель вернула текст вместо кода, возвращаем как есть. Длина: {len(cleaned_response)} символов", file=sys.stderr)
+                print(f"[WARNING] Начало ответа: {cleaned_response[:200]}...", file=sys.stderr)
+                return GenerateResponse(code=cleaned_response)
         
-        # Генерируем код
-        try:
-            code = generate_allure_test_code(report)
-            # Убеждаемся, что код правильно закодирован в UTF-8
-            if isinstance(code, bytes):
-                code = code.decode('utf-8', errors='replace')
-            # Проверяем, что код можно закодировать обратно (для валидации)
-            code.encode('utf-8')
-        except Exception as gen_error:
-            error_msg = safe_str(gen_error)
-            raise HTTPException(status_code=500, detail=f"Ошибка при генерации кода: {error_msg}")
-        
-        return GenerateResponse(code=code)
+        # Если дошли сюда, значит это был JSON, но что-то пошло не так
+        # Это не должно произойти, но на всякий случай
+        raise HTTPException(
+            status_code=500,
+            detail="Неожиданный формат ответа от OpenAI API"
+        )
         
     except HTTPException:
         # Пробрасываем HTTPException как есть
