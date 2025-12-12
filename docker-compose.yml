@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
   server:
     build:
       context: ./server
-      dockerfile: DockerFile
+      dockerfile: Dockerfile
     container_name: sos-server
     ports:
       - "8000:8000"
@@ -24,7 +22,7 @@ services:
   client:
     build:
       context: ./client
-      dockerfile: DockerFile
+      dockerfile: Dockerfile
     container_name: sos-client
     ports:
       - "3000:3000"
